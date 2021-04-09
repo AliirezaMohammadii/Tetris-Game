@@ -58,11 +58,16 @@ title Tetris Game Project
 
 	can_change dw ? ; type : boolean, to know we can change position of a shape or it cross the margin.
 
+	can_not_move_right dw ? ; type : boolean, to determine a shape can move right or not
+	can_not_move_left dw ? ; type : boolean, to determine a shape can move left or not
+
 	end_of_game dw 0
 
 	f_key_pressed dw ?
 
 	shape_numbers db 1, 3, 4, 8, 10
+
+	rotate_shape_8_9_state dw ? ; for shape 8 and 9. a number between 1 and 4. shows state of rotate. I am showing 4 states of a shape when rotates, with just 2 shapes.
 
 	temp dw 3
 	
@@ -281,8 +286,8 @@ check_pressed_key proc
 
 	right:
 		call check_right
-		cmp can_change, 0
-		jz no_change
+		cmp can_change, 1
+		jnz no_change
 
 		call clear_shape
 		mov bx, Y
@@ -293,8 +298,8 @@ check_pressed_key proc
 
 	left:
 		call check_left
-		cmp can_change, 0
-		jz no_change
+		cmp can_change, 1
+		jnz no_change
 
 		call clear_shape
 		mov bx, Y
@@ -304,6 +309,11 @@ check_pressed_key proc
 		ret
 
 	down:
+
+		call check_down
+		cmp can_change, 1
+		jnz no_change
+
 		call clear_shape
 		mov bx, X
 		add bx, len
@@ -384,10 +394,24 @@ rotate_shape proc
 
 
 	rotate1:
+		mov ax, X
+		sub ax, len
+		mov X, ax
+		mov ax, Y
+		add ax, len
+		add ax, len
+		mov Y, ax
 		mov current_function, 2
 		ret
 
 	rotate2:
+		mov ax, X
+		add ax, len
+		mov X, ax
+		mov ax, Y
+		sub ax, len
+		sub ax, len
+		mov Y, ax
 		mov current_function, 1
 		ret
 
@@ -396,30 +420,102 @@ rotate_shape proc
 		ret
 
 	rotate4:
+		mov ax, X
+		add ax, len
+		add ax, len
+		add ax, len
+		mov X, ax
 		mov current_function, 5
 		ret
 
 	rotate5:
+		mov ax, Y
+		sub ax, len
+		sub ax, len
+		mov Y, ax
 		mov current_function, 6
 		ret
 
 	rotate6:
+		mov ax, X
+		sub ax, len
+		sub ax, len
+		mov X, ax
+		mov ax, Y
+		add ax, len
+		mov Y, ax
 		mov current_function, 7
 		ret
 
 	rotate7:
+		mov ax, X
+		sub ax, len
+		mov X, ax
+		mov ax, Y
+		add ax, len
+		mov Y, ax
 		mov current_function, 4
 		ret
 
 	rotate8:
+
+		cmp rotate_shape_8_9_state, 1
+		jnz state_3:
+
+		mov ax, X
+		add ax, len
+		add ax, len
+		mov X, ax
+		jmp pass8
+
+		state_3:
+		mov ax, X
+		sub ax, len
+		mov X, ax
+		mov ax, Y
+		add ax, len
+		mov Y, ax
+
+		pass8:
+		inc rotate_shape_8_9_state
+		call reset_rs89_if_is_gt_5 ; reset_rs89_if_is_gt_5 : reset rotate_shape_8_9_state if is greater than 5. reset to 1
+
 		mov current_function, 9
 		ret
 
 	rotate9:
+		cmp rotate_shape_8_9_state, 2
+		jnz state_4:
+
+		mov ax, X
+		sub ax, len
+		mov X, ax
+		mov ax, Y
+		sub ax, len
+		sub ax, len
+		mov Y, ax
+		jmp pass9
+
+		state_4:
+		mov ax, Y
+		add ax, len
+		mov Y, ax
+
+		pass9:
+		inc rotate_shape_8_9_state
+		call reset_rs89_if_is_gt_5 ; reset_rs89_if_is_gt_5 : reset rotate_shape_8_9_state if is greater than 5. reset to 1
+
 		mov current_function, 8
 		ret
 
 	rotate10:
+		mov ax, X
+		sub ax, len
+		mov X, ax
+		mov ax, Y
+		add ax, len
+		mov Y, ax
+
 		mov current_function, 11
 		ret
 
@@ -432,12 +528,58 @@ rotate_shape proc
 		ret
 
 	rotate13:
+		mov ax, X
+		add ax, len
+		mov X, ax
+		mov ax, Y
+		sub ax, len
+		mov Y, ax
+
 		mov current_function, 10
 		ret
 
 	ret
 
 endp rotate_shape
+
+
+reset_rs89_if_is_gt_5 proc
+
+	cmp rotate_shape_8_9_state, 5
+	jnz no_reset
+
+	mov rotate_shape_8_9_state, 1
+
+	no_reset:
+
+	ret
+
+endp reset_rs89_if_is_gt_5
+
+
+check_down proc
+
+	cmp stop, 1			; stop == 1 : stop condition
+	jz change_forbidden0
+
+	cmp stop, 1
+	jz change_forbidden0
+
+	cmp stop, 1
+	jz change_forbidden0
+
+	cmp stop, 1
+	jz change_forbidden0
+
+	mov can_change, 1
+	ret
+
+	change_forbidden0:
+		mov can_change, 0
+
+	ret
+
+endp check_down
 
 
 check_right proc
@@ -485,6 +627,45 @@ check_right proc
 
 endp check_right
 
+
+determine_move_right_bool proc
+
+	cmp board[si+2], 0
+	jz move_is_permitted
+
+	mov ax, board[si+2]
+	cmp al, curr_color
+	jz move_is_permitted
+
+	mov can_not_move_right, 1
+	ret
+
+	move_is_permitted:
+		mov can_not_move_right, 0
+
+	ret
+
+endp determine_move_right_bool
+
+
+determine_move_left_bool proc
+
+	cmp board[si-2], 0
+	jz move_is_permitted2
+
+	mov ax, board[si-2]
+	cmp al, curr_color
+	jz move_is_permitted2
+
+	mov can_not_move_left, 1
+	ret
+
+	move_is_permitted2:
+		mov can_not_move_left, 0
+
+	ret
+
+endp determine_move_left_bool
 
 
 check_left proc
@@ -554,7 +735,7 @@ next_random_shape proc
 
 	call init_vars
 
-	; random value in range 1-13
+	; random value in range 1-5
 	mov bx, 5
 	call get_random_value
 	mov si, random_val
@@ -562,7 +743,7 @@ next_random_shape proc
 	mov ah, 0
 	mov current_function, ax
 
-	; mov current_function, 1
+	; mov current_function, 10
 
 	mov X, 10
 
@@ -583,6 +764,7 @@ init_vars proc
 
 	mov stop, 0
 
+	mov rotate_shape_8_9_state, 1
 	mov ax, init_delay_times
 	mov delay_times, ax
 	mov ax, init_delay_inner_counter
