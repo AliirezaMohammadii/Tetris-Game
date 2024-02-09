@@ -1,1 +1,1 @@
-Tetris Game
+This project is the mini-project of the microprocessors course and is my favorite project during my entire bachelor's period. I developed Tetris game using 8086 assembly language and implemented a component-based programming approach to ease the development process and enhance code readability.
